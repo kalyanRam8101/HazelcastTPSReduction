@@ -114,7 +114,19 @@ public class MainVerticle extends AbstractVerticle {
 				})
 				.onFailure(error -> {
 					startPromise.fail(error);
-					log.error("Failed to start HTTP server", error);
+					log.error("Failed to start HTTP serve100
+										 
+						
+				
+					
+						 											
+					
+					 
+				
+							
+							
+							
+				", error);
 				});
 	}
 
