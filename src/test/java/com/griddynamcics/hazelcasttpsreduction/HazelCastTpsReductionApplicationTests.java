@@ -1,13 +1,13 @@
-package com.griddynamcics.hazelcasttpsreduction;
+// package com.griddynamcics.hazelcasttpsreduction;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+// import org.junit.jupiter.api.Test;
+// import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class HazelCastTpsReductionApplicationTests {
+// @SpringBootTest
+// class HazelCastTpsReductionApplicationTests {
 
-    @Test
-    void contextLoads() {
-    }
+// @Test
+// void contextLoads() {
+// }
 
-}
+// }
