@@ -1,3 +1,9 @@
 2026-02-18 15:55:36.283 [main] WARN  i.n.r.d.DnsServerAddressStreamProviders - Can not find io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider in the classpath, fallback to system defaults. This may result in incorrect DNS resolutions on MacOS. Check whether you have a dependency on 'io.netty:netty-resolver-dns-native-macos'
 2026-02-18 15:55:36.331 [vert.x-eventloop-thread-0] INFO  c.g.h.verticles.MainVerticle - HTTP server started on port 8888
 2026-02-18 15:55:36.331 [vert.x-eventloop-thread-1] INFO  c.g.hazelcasttpsreduction.Launcher - Verticle started successfully, deploymentId=f32d1611-13f9-4950-a02b-fe797e49ff77
+2026-02-18 16:14:40.577 [main] WARN  i.n.r.d.DnsServerAddressStreamProviders - Can not find io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider in the classpath, fallback to system defaults. This may result in incorrect DNS resolutions on MacOS. Check whether you have a dependency on 'io.netty:netty-resolver-dns-native-macos'
+2026-02-18 16:14:40.588 [vert.x-eventloop-thread-0] INFO  c.g.h.verticles.MainVerticle - Initializing Hazelcast instance...
+2026-02-18 16:14:43.555 [vertx-blocked-thread-checker] WARN  i.v.core.impl.BlockedThreadChecker - Thread Thread[vert.x-eventloop-thread-0,5,main] has been blocked for 2967 ms, time limit is 2000 ms
+2026-02-18 16:14:43.711 [vert.x-eventloop-thread-0] INFO  c.g.h.verticles.MainVerticle - Hazelcast instance created successfully
+2026-02-18 16:14:43.753 [vert.x-eventloop-thread-0] INFO  c.g.h.verticles.MainVerticle - HTTP server started on port 8888
+2026-02-18 16:14:43.753 [vert.x-eventloop-thread-1] INFO  c.g.hazelcasttpsreduction.Launcher - Verticle started successfully, deploymentId=9ceacd54-4f1b-407c-ac6d-428a82d32548
