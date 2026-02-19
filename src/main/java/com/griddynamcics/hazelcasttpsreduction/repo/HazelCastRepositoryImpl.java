@@ -118,4 +118,5 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 		config.addMapConfig(cgpaMapConfig);
 		return config;
 	}
+
 }
