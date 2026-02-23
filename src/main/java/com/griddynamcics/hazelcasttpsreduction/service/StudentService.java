@@ -29,6 +29,7 @@ public class StudentService {
 		this.repository = repository;
 	}
 
+	// Seeds demo student records only when map is empty.
 	public void loadInitialData() {
 		if (!repository.isEmpty()) {
 			return;
@@ -39,19 +40,23 @@ public class StudentService {
 		repository.save(new Student("S-1003", "Carol", 21));
 	}
 
+	// Reads all student entities.
 	public List<Student> getAllStudents() {
 		return new ArrayList<>(repository.findAll());
 	}
 
+	// Reads a student by id.
 	public Optional<Student> getById(String id) {
 		return repository.findById(id);
 	}
 
+	// Inserts or updates single student.
 	public Student upsert(Student student) {
 		repository.save(student);
 		return student;
 	}
 
+	// Processes student bulk upsert in chunks and reports aggregate metrics.
 	public BulkUpsertMetrics upsertBulk(List<Student> students, RateLimiter recordsRateLimiter, int chunkSize,
 			IntConsumer progressCallback) {
 		if (students.isEmpty()) {
@@ -79,6 +84,7 @@ public class StudentService {
 		return new BulkUpsertMetrics(students.size(), overallStartEpochMs, overallEndEpochMs, overallTps);
 	}
 
+	// Imports CSV of `student_id,cgpa` with tolerant parsing and chunked persistence.
 	public CsvImportMetrics importCgpaCsv(String csvPath, boolean hasHeader, RateLimiter recordsRateLimiter,
 			int chunkSize, IntConsumer progressCallback) throws IOException {
 		Path path = Path.of(csvPath);
@@ -142,14 +148,17 @@ public class StudentService {
 		return new CsvImportMetrics(processed, skipped.get(), overallStartEpochMs, overallEndEpochMs, overallTps);
 	}
 
+	// Reads cgpa for student id from dedicated map.
 	public Optional<Double> getCgpaByStudentId(String studentId) {
 		return repository.findCgpaByStudentId(studentId);
 	}
 
+	// Returns total cgpa entries.
 	public long getCgpaCount() {
 		return repository.getCgpaCount();
 	}
 
+	// Handles one bulk student chunk with rate limiting and chunk-level logs.
 	private int processStudentChunk(List<Student> chunk, int chunkNumber, RateLimiter recordsRateLimiter) {
 		String threadName = Thread.currentThread().getName();
 		long chunkStartEpochMs = System.currentTimeMillis();
@@ -170,6 +179,7 @@ public class StudentService {
 		return chunk.size();
 	}
 
+	// Handles one cgpa chunk with rate limiting and chunk-level logs.
 	private int processCgpaChunk(Map<String, Double> chunk, int chunkNumber, RateLimiter recordsRateLimiter) {
 		String threadName = Thread.currentThread().getName();
 		long chunkStartEpochMs = System.currentTimeMillis();
@@ -190,6 +200,7 @@ public class StudentService {
 		return chunk.size();
 	}
 
+	// Parses one CSV line across multiple accepted formats.
 	private Map.Entry<String, Double> parseCgpaLine(String line) {
 		String sanitized = line.replace("\uFEFF", "").trim();
 		if (sanitized.isEmpty()) {
@@ -241,6 +252,7 @@ public class StudentService {
 		}
 	}
 
+	// Removes quotes/whitespace from token values.
 	private String cleanToken(String value) {
 		String cleaned = value.trim();
 		if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() >= 2) {
@@ -249,10 +261,12 @@ public class StudentService {
 		return cleaned.trim();
 	}
 
+	// Normalizes key token to compare variant header names.
 	private String normalize(String value) {
 		return cleanToken(value).toLowerCase(Locale.ROOT).replace(" ", "").replace("-", "").replace(".", "");
 	}
 
+	// Aggregate metrics for student bulk upsert endpoint.
 	public static class BulkUpsertMetrics {
 		private final int processedRecords;
 		private final long startEpochMs;
@@ -283,6 +297,7 @@ public class StudentService {
 		}
 	}
 
+	// Aggregate metrics for CSV import endpoint.
 	public static class CsvImportMetrics {
 		private final int processedRecords;
 		private final int skippedRecords;

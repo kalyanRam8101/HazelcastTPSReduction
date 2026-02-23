@@ -28,6 +28,7 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 	private final IMap<String, Double> studentCgpa;
 	private boolean closed;
 
+	// Reuses a shared Hazelcast member for all repository objects in the same JVM.
 	public HazelCastRepositoryImpl() {
 		this.hazelcastInstance = getOrCreateSharedInstance();
 		this.students = hazelcastInstance.getMap(STUDENTS_MAP);
@@ -36,11 +37,13 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 	}
 
 	@Override
+	// Writes/updates one student.
 	public void save(Student student) {
 		students.put(student.getId(), student);
 	}
 
 	@Override
+	// Bulk writes student records in one Hazelcast map operation.
 	public void saveAll(Collection<Student> students) {
 		Map<String, Student> batch = students.stream()
 				.collect(Collectors.toMap(Student::getId, student -> student, (left, right) -> right));
@@ -48,36 +51,43 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 	}
 
 	@Override
+	// Reads one student.
 	public Optional<Student> findById(String id) {
 		return Optional.ofNullable(students.get(id));
 	}
 
 	@Override
+	// Reads all students.
 	public Collection<Student> findAll() {
 		return students.values();
 	}
 
 	@Override
+	// Checks whether student map is empty.
 	public boolean isEmpty() {
 		return students.isEmpty();
 	}
 
 	@Override
+	// Bulk writes cgpa key-value map.
 	public void saveCgpaAll(Map<String, Double> cgpaBatch) {
 		studentCgpa.putAll(cgpaBatch);
 	}
 
 	@Override
+	// Reads cgpa by student id.
 	public Optional<Double> findCgpaByStudentId(String studentId) {
 		return Optional.ofNullable(studentCgpa.get(studentId));
 	}
 
 	@Override
+	// Returns total number of cgpa records.
 	public long getCgpaCount() {
 		return studentCgpa.size();
 	}
 
 	@Override
+	// Ref-count based shutdown to avoid stopping shared Hazelcast while still in use.
 	public void shutdown() {
 		synchronized (LOCK) {
 			if (closed) {
@@ -96,6 +106,7 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 		}
 	}
 
+	// Creates one shared Hazelcast member on first access.
 	private HazelcastInstance getOrCreateSharedInstance() {
 		synchronized (LOCK) {
 			if (sharedHazelcastInstance == null || !sharedHazelcastInstance.getLifecycleService().isRunning()) {
@@ -107,6 +118,7 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 		}
 	}
 
+	// Central Hazelcast map configuration.
 	private Config buildConfig() {
 		Config config = new Config();
 		config.setClusterName("hazelcast-tps-reduction");

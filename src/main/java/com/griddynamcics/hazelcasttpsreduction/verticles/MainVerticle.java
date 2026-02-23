@@ -39,6 +39,7 @@ public class MainVerticle extends AbstractVerticle {
 	private static final int WORKER_POOL_SIZE = 16;
 	private static final int BULK_CHUNK_SIZE = 1000;
 	private static final AtomicInteger ACTIVE_VERTICLE_INSTANCES = new AtomicInteger(0);
+	private static final AtomicInteger IN_FLIGHT_REQUESTS = new AtomicInteger(0);
 	private static final ThreadMXBean THREAD_BEAN = ManagementFactory.getThreadMXBean();
 
 	private final RateLimiter requestRateLimiter = RateLimiter.create(REQUESTS_PER_SECOND);
@@ -49,6 +50,7 @@ public class MainVerticle extends AbstractVerticle {
 	private boolean serverStarted;
 
 	@Override
+	// Initializes worker resources and blocking dependencies before HTTP server start.
 	public void start(Promise<Void> startPromise) {
 		workerExecutor = vertx.createSharedWorkerExecutor("student-worker-pool", WORKER_POOL_SIZE);
 		vertx.<Void>executeBlocking(promise -> {
@@ -64,6 +66,7 @@ public class MainVerticle extends AbstractVerticle {
 	}
 
 	@Override
+	// Gracefully shuts down repository and worker pool when verticle is undeployed.
 	public void stop(Promise<Void> stopPromise) {
 		vertx.<Void>executeBlocking(promise -> {
 			if (repository != null) {
@@ -83,8 +86,11 @@ public class MainVerticle extends AbstractVerticle {
 		});
 	}
 
+	// Builds router + handlers and starts HTTP listener on shared port.
 	private void startHttpServer(Promise<Void> startPromise) {
 		Router router = Router.router(vertx);
+		// Global middleware order: in-flight tracking -> body parsing -> request limiting.
+		router.route().handler(this::trackInFlightRequests);
 		router.route().handler(BodyHandler.create());
 		router.route().handler(this::requestRateLimit);
 
@@ -118,6 +124,7 @@ public class MainVerticle extends AbstractVerticle {
 				});
 	}
 
+	// Global request TPS guard for all endpoints.
 	private void requestRateLimit(RoutingContext context) {
 		if (requestRateLimiter.tryAcquire()) {
 			context.next();
@@ -135,6 +142,7 @@ public class MainVerticle extends AbstractVerticle {
 				.end(errorBody.encode());
 	}
 
+	// Health endpoint exposes runtime and scaling counters.
 	private void health(RoutingContext context) {
 		context.response()
 				.putHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -143,17 +151,32 @@ public class MainVerticle extends AbstractVerticle {
 						.put("recordsRateLimitPerSecond", (int) RECORDS_PER_SECOND)
 						.put("maxRecordsPerRequest", MAX_RECORDS_PER_REQUEST)
 						.put("activeVerticleInstances", ACTIVE_VERTICLE_INSTANCES.get())
+						.put("inFlightRequests", IN_FLIGHT_REQUESTS.get())
 						.put("jvmLiveThreads", THREAD_BEAN.getThreadCount())
 						.put("workerPoolConfigured", WORKER_POOL_SIZE)
 						.encode());
 	}
 
+	// Tracks current in-flight requests for autoscaling calculations.
+	private void trackInFlightRequests(RoutingContext context) {
+		IN_FLIGHT_REQUESTS.incrementAndGet();
+		context.addEndHandler(v -> {
+			int now = IN_FLIGHT_REQUESTS.decrementAndGet();
+			if (now < 0) {
+				IN_FLIGHT_REQUESTS.set(0);
+			}
+		});
+		context.next();
+	}
+
+	// Utility log for operational runtime counters.
 	private void logRuntimeStats(String stage) {
 		log.info(
 				"runtime-stats stage={} deploymentId={} activeVerticleInstances={} jvmLiveThreads={} workerPoolConfigured={}",
 				stage, deploymentID(), ACTIVE_VERTICLE_INSTANCES.get(), THREAD_BEAN.getThreadCount(), WORKER_POOL_SIZE);
 	}
 
+	// Returns all students from Hazelcast through worker thread execution.
 	private void getStudents(RoutingContext context) {
 		workerExecutor.<JsonArray>executeBlocking(promise -> {
 			List<StudentDTO> students = studentService.getAllStudents().stream()
@@ -166,6 +189,7 @@ public class MainVerticle extends AbstractVerticle {
 				.onFailure(error -> internalError(context, error));
 	}
 
+	// Returns a single student by path id.
 	private void getStudentById(RoutingContext context) {
 		String id = context.pathParam("id");
 		workerExecutor.<StudentDTO>executeBlocking(promise -> {
@@ -186,6 +210,7 @@ public class MainVerticle extends AbstractVerticle {
 		}).onFailure(error -> internalError(context, error));
 	}
 
+	// Upserts one student record from JSON body.
 	private void upsertStudent(RoutingContext context) {
 		JsonObject body = context.body().asJsonObject();
 		if (body == null) {
@@ -213,6 +238,7 @@ public class MainVerticle extends AbstractVerticle {
 				.onFailure(error -> internalError(context, error));
 	}
 
+	// Upserts multiple student records and reports live + final TPS.
 	private void upsertStudentsBulk(RoutingContext context) {
 		List<StudentDTO> students = parseStudents(context.body().asJsonArray(), context.body().asJsonObject());
 		if (students == null) {
@@ -290,6 +316,7 @@ public class MainVerticle extends AbstractVerticle {
 				.onFailure(error -> internalError(context, error));
 	}
 
+	// Imports `student_id,cgpa` CSV from local path and stores into Hazelcast map.
 	private void importCgpaCsv(RoutingContext context) {
 		JsonObject body = context.body().asJsonObject();
 		if (body == null) {
@@ -362,6 +389,7 @@ public class MainVerticle extends AbstractVerticle {
 		});
 	}
 
+	// Returns cgpa for a specific student id.
 	private void getCgpaByStudentId(RoutingContext context) {
 		String studentId = context.pathParam("studentId");
 		if (studentId == null || studentId.isBlank()) {
@@ -391,6 +419,7 @@ public class MainVerticle extends AbstractVerticle {
 				.onFailure(error -> internalError(context, error));
 	}
 
+	// Returns total count of cgpa records currently in Hazelcast.
 	private void getCgpaCount(RoutingContext context) {
 		workerExecutor.<Long>executeBlocking(promise -> promise.complete(studentService.getCgpaCount()))
 				.onSuccess(count -> context.response()
@@ -399,6 +428,7 @@ public class MainVerticle extends AbstractVerticle {
 				.onFailure(error -> internalError(context, error));
 	}
 
+	// Parses students payload from either raw array or object with `students` array.
 	private List<StudentDTO> parseStudents(JsonArray bodyArray, JsonObject bodyObject) {
 		JsonArray studentsArray = bodyArray;
 		if (studentsArray == null && bodyObject != null) {
@@ -419,6 +449,7 @@ public class MainVerticle extends AbstractVerticle {
 		return list;
 	}
 
+	// Standardized 500 response helper.
 	private void internalError(RoutingContext context, Throwable error) {
 		log.error("Request failed", error);
 		context.response()
@@ -427,6 +458,7 @@ public class MainVerticle extends AbstractVerticle {
 				.end(new JsonObject().put("error", "Internal Server Error").encode());
 	}
 
+	// Shared validation for student create/update requests.
 	private boolean isInvalid(StudentDTO dto) {
 		return dto.getAge() <= 0
 				|| Objects.isNull(dto.getId())
@@ -435,6 +467,7 @@ public class MainVerticle extends AbstractVerticle {
 				|| dto.getName().isBlank();
 	}
 
+	// Per-request tracker for near-real-time TPS calculation during chunk processing.
 	private static class LiveTpsTracker {
 		private final long startNanos = System.nanoTime();
 		private final AtomicLong processed = new AtomicLong(0);
@@ -454,5 +487,13 @@ public class MainVerticle extends AbstractVerticle {
 		double getCurrentTps() {
 			return currentTps;
 		}
+	}
+
+	public static int getActiveVerticleInstances() {
+		return ACTIVE_VERTICLE_INSTANCES.get();
+	}
+
+	public static int getInFlightRequests() {
+		return IN_FLIGHT_REQUESTS.get();
 	}
 }

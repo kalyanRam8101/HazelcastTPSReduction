@@ -8,9 +8,11 @@ public class StudentDTO {
 	private String name;
 	private int age;
 
+	// Default constructor for JSON/object mapping.
 	public StudentDTO() {
 	}
 
+	// DTO constructor used by mapping helpers.
 	public StudentDTO(String id, String name, int age) {
 		this.id = id;
 		this.name = name;
@@ -41,14 +43,17 @@ public class StudentDTO {
 		this.age = age;
 	}
 
+	// Converts API DTO to internal entity.
 	public Student toEntity() {
 		return new Student(id, name, age);
 	}
 
+	// Converts internal entity to API DTO.
 	public static StudentDTO fromEntity(Student student) {
 		return new StudentDTO(student.getId(), student.getName(), student.getAge());
 	}
 
+	// Converts DTO to JSON response payload.
 	public JsonObject toJson() {
 		return new JsonObject()
 				.put("id", id)
@@ -56,6 +61,7 @@ public class StudentDTO {
 				.put("age", age);
 	}
 
+	// Creates DTO from request JSON body.
 	public static StudentDTO fromJson(JsonObject json) {
 		return new StudentDTO(
 				json.getString("id"),
