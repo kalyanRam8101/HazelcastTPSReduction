@@ -28,14 +28,14 @@
 
 ```mermaid
 graph TD
-    A[Client (Postman/cURL)] -->|HTTP| B[Vert.x Web Server]
-    B --> C[MainVerticle]
-    C --> D[StudentService]
-    D --> E[HazelCastRepository]
-    E --> F[Hazelcast Cluster]
-    C --> G[RateLimiter]
-    C --> H[WorkerExecutor]
-    C --> I[TPS Tracker]
+    A(Client) --> B(Vert.x Web Server)
+    B --> C(MainVerticle)
+    C --> D(StudentService)
+    D --> E(HazelCastRepository)
+    E --> F(Hazelcast Cluster)
+    C --> G(RateLimiter)
+    C --> H(WorkerExecutor)
+    C --> I(TPS Tracker)
 ```
 
 ---
@@ -178,10 +178,13 @@ graph TD
 
 ```mermaid
 graph LR
-    A[API Request] -->|RateLimiter| B[Vert.x Handler]
-    B -->|Worker Pool| C[StudentService]
-    C -->|Bulk/CSV| D[TPS Tracker]
-    C --> E[Hazelcast]
+    A(API Request) --> B(RateLimiter)
+    B --> C(Vert.x Handler)
+    C --> D(Worker Pool)
+    D --> E(StudentService)
+    E --> F(Bulk/CSV)
+    E --> G(TPS Tracker)
+    E --> H(Hazelcast)
 ```
 
 - **Requests/sec:** 1,000
