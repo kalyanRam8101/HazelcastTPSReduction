@@ -19,6 +19,10 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 	private static final Logger log = LoggerFactory.getLogger(HazelCastRepositoryImpl.class);
 	private static final String STUDENTS_MAP = "students";
 	private static final String STUDENT_CGPA_MAP = "student_cgpa";
+	private static final String STUDENTS_TTL_ENV = "STUDENTS_TTL_SECONDS";
+	private static final String STUDENT_CGPA_TTL_ENV = "STUDENT_CGPA_TTL_SECONDS";
+	private static final int DEFAULT_STUDENTS_TTL_SECONDS = 3600;
+	private static final int DEFAULT_STUDENT_CGPA_TTL_SECONDS = 3600;
 	private static final Object LOCK = new Object();
 	private static final AtomicInteger CLIENT_COUNT = new AtomicInteger(0);
 	private static HazelcastInstance sharedHazelcastInstance;
@@ -120,15 +124,39 @@ public class HazelCastRepositoryImpl implements HazelCastRepository {
 
 	// Central Hazelcast map configuration.
 	private Config buildConfig() {
+		int studentsTtlSeconds = parseNonNegativeInt(
+				System.getenv(STUDENTS_TTL_ENV), DEFAULT_STUDENTS_TTL_SECONDS);
+		int cgpaTtlSeconds = parseNonNegativeInt(
+				System.getenv(STUDENT_CGPA_TTL_ENV), DEFAULT_STUDENT_CGPA_TTL_SECONDS);
+
 		Config config = new Config();
 		config.setClusterName("hazelcast-tps-reduction");
+
 		MapConfig mapConfig = new MapConfig(STUDENTS_MAP);
 		mapConfig.setBackupCount(1);
+		mapConfig.setTimeToLiveSeconds(studentsTtlSeconds);
 		config.addMapConfig(mapConfig);
+
 		MapConfig cgpaMapConfig = new MapConfig(STUDENT_CGPA_MAP);
 		cgpaMapConfig.setBackupCount(1);
+		cgpaMapConfig.setTimeToLiveSeconds(cgpaTtlSeconds);
 		config.addMapConfig(cgpaMapConfig);
+
+		log.info("Hazelcast TTL config: studentsTtlSeconds={}, studentCgpaTtlSeconds={}",
+				studentsTtlSeconds, cgpaTtlSeconds);
 		return config;
+	}
+
+	private int parseNonNegativeInt(String value, int defaultValue) {
+		if (value == null || value.isBlank()) {
+			return defaultValue;
+		}
+		try {
+			int parsed = Integer.parseInt(value.trim());
+			return parsed >= 0 ? parsed : defaultValue;
+		} catch (NumberFormatException ex) {
+			return defaultValue;
+		}
 	}
 
 }
